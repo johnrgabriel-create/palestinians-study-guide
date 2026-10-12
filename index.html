@@ -527,18 +527,23 @@ const sw=$('.stripwrap'),fade=()=>sw.classList.toggle('more',sw.scrollLeft+sw.cl
 sw.addEventListener('scroll',fade,{passive:true});addEventListener('resize',fade);fade();
 /* desktop: start with the first card in the panel */
 if(!mobile()){const d=$('.chapter .dk');if(d)show(d.dataset.id,{fromMap:true})}
+/* desktop: the player is there, paused, when the page opens (at the resume point, else 9:00) */
+setTimeout(()=>{if(mobile()||ytf)return;let t=540;try{const q=JSON.parse(localStorage.getItem('ck')||'null')||JSON.parse(localStorage.getItem('pos')||'null');const v=q&&(q.t0||q.t);if(v>0)t=Math.max(0,Math.round(v)-3)}catch(e){}document.body.classList.add('playing');ytMake(t,0)},0)
 
 /* the player: ▶ times play the video inside the panel (privacy embed, no watch-history resume); the clock below follows the real player time */
 const YT_ORIGIN='https://www.youtube-nocookie.com',VID=(/[?&]v=([\w-]+)/.exec(VIDEO)||[])[1];
-let ytf=null,ytReady=false,ytState=-1;
+let ytf=null,ytReady=false,ytState=-1,ytArmed=false;
+function ytMake(t,auto){if(ytf)ytf.remove();ytReady=false;ytf=document.createElement('iframe');ytf.allow='autoplay; encrypted-media; picture-in-picture; fullscreen';ytf.allowFullscreen=true;ytf.title='Dalrymple, the video';
+ ytf.src=`${YT_ORIGIN}/embed/${VID}?start=${t}&autoplay=${auto}&rel=0&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(location.origin)}`;
+ ytf.addEventListener('load',()=>ytf.contentWindow.postMessage(JSON.stringify({event:'listening',id:1,channel:'widget'}),YT_ORIGIN));
+ $('#player').prepend(ytf)}
+
 function ytPost(func,args){if(ytf&&ytReady&&ytf.contentWindow)ytf.contentWindow.postMessage(JSON.stringify({event:'command',func,args:args||[]}),YT_ORIGIN)}
 function ytPlay(t){t=Math.max(0,Math.min(END,Math.round(t)));document.body.classList.add('playing');
  if(mobile())document.body.classList.add('sheet');
  if(ytReady){ytPost('seekTo',[t,true]);ytPost('playVideo')}
- else{if(ytf)ytf.remove();ytReady=false;ytf=document.createElement('iframe');ytf.allow='autoplay; encrypted-media; picture-in-picture; fullscreen';ytf.allowFullscreen=true;ytf.title='Dalrymple, the video';
-  ytf.src=`${YT_ORIGIN}/embed/${VID}?start=${t}&autoplay=1&rel=0&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(location.origin)}`;
-  ytf.addEventListener('load',()=>ytf.contentWindow.postMessage(JSON.stringify({event:'listening',id:1,channel:'widget'}),YT_ORIGIN));
-  $('#player').prepend(ytf)}
+ else ytMake(t,1);
+ ytArmed=true;
  ckSet(t,true);if(map)setTimeout(()=>map.invalidateSize(),300);
  setTimeout(()=>{if(document.body.classList.contains('playing')&&ytState!==1&&ytState!==3)$('#pmsg').textContent='Press play in the video if it has not started.'},4000)}
 function ytSeek(t,play){t=Math.max(0,Math.min(END,t));ckSet(t,play||CK.run);if(ytReady){ytPost('seekTo',[t,true]);if(play)ytPost('playVideo')}else if(play)ytPlay(t)}
@@ -546,6 +551,7 @@ addEventListener('message',e=>{if(e.origin!==YT_ORIGIN||!ytf||e.source!==ytf.con
  if(d.event==='onReady')ytReady=true;
  if(d.event==='onError'){$('#pmsg').innerHTML='<span class="perr">YouTube will not play here.</span> Use the link →';return}
  if(!document.body.classList.contains('playing'))return;
+ if(!ytArmed){const st=d.event==='onStateChange'?d.info:(d.info&&d.info.playerState);if(st===1)ytArmed=true;else return}
  if(d.event==='onStateChange'&&typeof d.info==='number'){ytState=d.info;if(ytState===1)$('#pmsg').textContent='';const run=ytState===1;if(run!==CK.run){CK.t0=cknow();CK.at=Date.now();CK.run=run;CK.on=true;ckSave();ckRender()}}
  if(d.event==='infoDelivery'&&d.info){const i=d.info;if(typeof i.playerState==='number')ytState=i.playerState;
   if(typeof i.currentTime==='number'){CK.t0=i.currentTime;CK.at=Date.now();CK.run=ytState===1;CK.on=true;ckSave();tick()}}});
