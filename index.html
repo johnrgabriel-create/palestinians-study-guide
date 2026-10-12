@@ -212,6 +212,10 @@ body.playing #player{display:block}
 body.playing #pbar{display:flex}
 #pbar a{color:var(--mut);border-bottom:1px solid var(--line)} #pbar a:hover{color:var(--ink)}
 #pbar .perr{color:var(--red)}
+#pbar .pctl{display:flex;gap:4px;flex:none}
+#pbar .pctl button{font:600 13px var(--f-mono);color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:3px;padding:3px 9px;cursor:pointer}
+#pbar .pctl button:hover{border-color:var(--ink)}
+#pbar #pmsg{flex:1 1 auto;min-width:0}
 #map{flex:1 1 0;border:1px solid var(--line);border-radius:4px;background:var(--sea);min-height:240px}
 body.playing #map{min-height:190px}
 .leaflet-container{font:13px var(--f-ui);background:var(--sea)}
@@ -395,7 +399,7 @@ body.playing #card img{max-height:130px}
 <aside class="panel" id="panel" aria-label="Map and preview">
 <div id="sheetbar"><span id="sheettitle">Preview</span><span><button id="togglemap">Map</button> <button id="closesheet">Close</button></span></div>
 <div id="player" aria-label="The video"></div>
-<div id="pbar"><span id="pmsg">Playing here. The clock above follows the player.</span><a id="ytout" href="https://www.youtube.com/watch?v=6n83RMzRrrI" target="_blank" rel="noopener">Open on YouTube ↗</a></div>
+<div id="pbar"><span class="pctl"><button id="pback" title="Back 10 seconds">−10</button><button id="pfwd" title="Forward 10 seconds">+10</button><button id="pfs" title="Full screen">Full screen</button></span><span id="pmsg"></span><a id="ytout" href="https://www.youtube.com/watch?v=6n83RMzRrrI" target="_blank" rel="noopener">Open on YouTube ↗</a></div>
 <div id="card" aria-live="polite"><p class="empty">Tap an underlined name or a thumbnail. Its picture and summary show up here, and places show on the map below.</p></div>
 <div id="map" aria-label="Map of places he mentions"></div>
 </aside>
@@ -531,7 +535,7 @@ function ytPost(func,args){if(ytf&&ytReady&&ytf.contentWindow)ytf.contentWindow.
 function ytPlay(t){t=Math.max(0,Math.min(END,Math.round(t)));document.body.classList.add('playing');
  if(mobile())document.body.classList.add('sheet');
  if(ytReady){ytPost('seekTo',[t,true]);ytPost('playVideo')}
- else{if(ytf)ytf.remove();ytReady=false;ytf=document.createElement('iframe');ytf.allow='autoplay; encrypted-media; picture-in-picture';ytf.title='Dalrymple, the video';
+ else{if(ytf)ytf.remove();ytReady=false;ytf=document.createElement('iframe');ytf.allow='autoplay; encrypted-media; picture-in-picture; fullscreen';ytf.allowFullscreen=true;ytf.title='Dalrymple, the video';
   ytf.src=`${YT_ORIGIN}/embed/${VID}?start=${t}&autoplay=1&rel=0&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(location.origin)}`;
   ytf.addEventListener('load',()=>ytf.contentWindow.postMessage(JSON.stringify({event:'listening',id:1,channel:'widget'}),YT_ORIGIN));
   $('#player').prepend(ytf)}
@@ -542,7 +546,7 @@ addEventListener('message',e=>{if(e.origin!==YT_ORIGIN||!ytf||e.source!==ytf.con
  if(d.event==='onReady')ytReady=true;
  if(d.event==='onError'){$('#pmsg').innerHTML='<span class="perr">YouTube will not play here.</span> Use the link →';return}
  if(!document.body.classList.contains('playing'))return;
- if(d.event==='onStateChange'&&typeof d.info==='number'){ytState=d.info;if(ytState===1)$('#pmsg').textContent='Playing here. The clock above follows the player.';const run=ytState===1;if(run!==CK.run){CK.t0=cknow();CK.at=Date.now();CK.run=run;CK.on=true;ckSave();ckRender()}}
+ if(d.event==='onStateChange'&&typeof d.info==='number'){ytState=d.info;if(ytState===1)$('#pmsg').textContent='';const run=ytState===1;if(run!==CK.run){CK.t0=cknow();CK.at=Date.now();CK.run=run;CK.on=true;ckSave();ckRender()}}
  if(d.event==='infoDelivery'&&d.info){const i=d.info;if(typeof i.playerState==='number')ytState=i.playerState;
   if(typeof i.currentTime==='number'){CK.t0=i.currentTime;CK.at=Date.now();CK.run=ytState===1;CK.on=true;ckSave();tick()}}});
 
@@ -576,6 +580,9 @@ document.addEventListener('click',ev=>{const v=ev.target.closest('a[href*="youtu
 $('#ckplay').addEventListener('click',()=>{if(!ytReady){ytPlay(cknow());return}if(CK.run){CK.t0=cknow();CK.run=false;ytPost('pauseVideo')}else{CK.at=Date.now();CK.run=true;ytPost('playVideo')}ckSave();ckRender()});
 $('#ckback').addEventListener('click',()=>ytSeek(cknow()-10));
 $('#ckfwd').addEventListener('click',()=>ytSeek(cknow()+10));
+$('#pback').addEventListener('click',()=>ytSeek(cknow()-10));
+$('#pfwd').addEventListener('click',()=>ytSeek(cknow()+10));
+$('#pfs').addEventListener('click',()=>{const f=ytf;if(!f)return;const q=f.requestFullscreen||f.webkitRequestFullscreen;if(q)q.call(f)});
 $('#ckoff').addEventListener('click',()=>{ytPost('pauseVideo');document.body.classList.remove('playing');ckOff()});
 $('#clock').addEventListener('click',ev=>{const b=ev.target.closest('button#cktime');if(!b)return;
  const i=document.createElement('input');i.id='cktime';i.className='ckon';i.value=fmt(cknow());i.setAttribute('aria-label','A time, like 23:57');i.inputMode='numeric';
